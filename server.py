@@ -12,18 +12,6 @@ import datetime
 pin_pulse_raw="P9_40";
 pin_eda_raw="P9_33";
 
-# Select data to be streamed
-ON_accel_x=1;
-ON_accel_y=1;
-ON_accel_z=1;
-ON_accel_linear=0;
-ON_gyro_yaw=0;
-ON_gyro_roll=0;
-ON_gyro_pitch=0;
-ON_pulse_raw=1;
-ON_eda_raw=1;
-ON_temp_raw=1;
-
 #sensor data
 accel_x=0;
 accel_y=0;
@@ -115,7 +103,7 @@ def init_EDA():
     eda_threshold=edaSum/500;
 
 def get_Pulse():
-        #######################################################################
+    #######################################################################
 
     global pulse_raw;
     global pulse_proc;
@@ -166,7 +154,7 @@ def get_Pulse():
     #return pulse_raw,pulse_bpm,pulse_avgBPM;
         #######################################################################
 
-
+averagedData=0
 if __name__ == "__main__":
 
     # Setup ADC and measure first few values to set threshold
@@ -184,6 +172,9 @@ if __name__ == "__main__":
     pulse_totalTime =0;
     # a forever loop until we interrupt it or
     # an error occurs
+    filename= time.strftime("%Y%m%d-%H%M%S")
+    f=open("./datalog/"+filename,'w')
+
     while True:
         start = time.time()
         # Establish connection with client.
@@ -212,53 +203,35 @@ if __name__ == "__main__":
         get_Pulse();
         #######################################################################
         accel_x,accel_y,accel_z = bno.read_accelerometer()
+        resultantAccelration= ((accel_x**2)+(accel_y**2)+(accel_z**2))**0.5
+        averagedData=(averagedData*count+resultantAccelration)/(count+1)
+
+        if count == 100:
+            integratedData=0
+            count=0;
+        count=count +1
         # BNO055 Sensor temperature in degrees Celsius:
         temp_c = bno.read_temp()
         #######################################################################
 
-        if ON_temp_raw == 1:
-            #output=temp.strip()+";";
-            output=str(temp_c)+";";
-
-        if ON_pulse_raw == 1:
-            output+=str(pulse_raw)+";";
-
-        if ON_eda_raw == 1:
-            output+=str(pulse_avgBPM)+";";
-
-        if ON_accel_linear == 1:
-            output+=str(accel_linear)+";";
-
-        if ON_accel_x == 1:
-            output+=str(pulse_bpm)+";";
-           #output+=str(accel_x)+";";
-
-        if ON_accel_y == 1:
-            output+=str(pulse_proc)+";";
-            #output+=str(accel_y)+";";
-
-        if ON_accel_z == 1:
-            output+=str(accel_z)+";";
-
-        if ON_gyro_yaw == 1:
-            output+=str(gyro_yaw)+";";
-
-        if ON_gyro_roll == 1:
-            output+=str(gyro_roll)+";";
-
-        if ON_gyro_pitch == 1:
-            output+=str(gyro_pitch);
-
-        #print(output+"$\n");
+        output=str(temp_c)+";";
+        output+=str(pulse_raw)+";";
+        output+=str(eda_raw)+";";
+        output+=str(accel_x)+";";
+        output+=str(accel_y)+";";
+        output+=str(accel_z)+";";
+        output+=str(resultantAccelration)+";";
+        output+=str(averagedData)+";";
         end = time.time()
+        f.write(output+"\n")
         if reply == "OK":
             c.send(output+"$");
         if not reply: break
         reply = c.recv(4096)
         print(output+"\t :"+reply+"\n")
         #print(end - start)
-        count=count+1
         #time.sleep(1);
 # Close the connection with the client
     c.close()
+    f.close()
 
