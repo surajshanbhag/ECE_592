@@ -1,12 +1,14 @@
 #!/usr/bin/python
 # first of all import the socket library
 import random
+from subprocess import call
 import Adafruit_BBIO.ADC as ADC
 from Adafruit_BNO055 import BNO055
 import socket
 import subprocess
 import time
 import datetime
+import os
 
 #sensor pin connection
 pin_pulse_raw="P9_40";
@@ -47,6 +49,8 @@ bno=[]
 
 def initialize_BNO():
     #setup accelerometer
+    os.system("config-pin P9_17 i2c")
+    os.system("config-pin P9_18 i2c")
     global bno
     bno=BNO055.BNO055(rst='P9_12')
 
@@ -155,6 +159,9 @@ def get_Pulse():
         #######################################################################
 
 averagedData=0
+integratedData=0
+seizureDetected=0
+thresholdCount=0
 if __name__ == "__main__":
 
     # Setup ADC and measure first few values to set threshold
@@ -200,12 +207,24 @@ if __name__ == "__main__":
         #######################################################################
         eda_raw=ADC.read_raw(pin_eda_raw)
         #######################################################################
-        get_Pulse();
+        #get_Pulse();
+        pulse_raw=ADC.read_raw(pin_pulse_raw)
         #######################################################################
-        accel_x,accel_y,accel_z = bno.read_accelerometer()
+        #accel_x,accel_y,accel_z = bno.read_accelerometer()
+        accel_x,accel_y,accel_z = bno.read_linear_acceleration()
         resultantAccelration= ((accel_x**2)+(accel_y**2)+(accel_z**2))**0.5
         averagedData=(averagedData*count+resultantAccelration)/(count+1)
+        integratedData=integratedData+resultantAccelration
 
+        if resultantAccelration > 2:
+            thresholdCount=thresholdCount+20
+        elif thresholdCount > 0:
+            thresholdCount=thresholdCount-20
+
+        if thresholdCount > 1000:
+            seizureDetected=1
+        else:
+            seizureDetected=0
         if count == 100:
             integratedData=0
             count=0;
@@ -214,14 +233,15 @@ if __name__ == "__main__":
         temp_c = bno.read_temp()
         #######################################################################
 
-        output=str(temp_c)+";";
-        output+=str(pulse_raw)+";";
-        output+=str(eda_raw)+";";
-        output+=str(accel_x)+";";
-        output+=str(accel_y)+";";
-        output+=str(accel_z)+";";
-        output+=str(resultantAccelration)+";";
-        output+=str(averagedData)+";";
+        output=str(temp_c)+";";#0
+        output+=str(pulse_raw)+";";#1
+        output+=str(eda_raw)+";";#2
+        output+=str(accel_x)+";";#3
+        output+=str(accel_y)+";";#4
+        output+=str(accel_z)+";";#5
+        output+=str(resultantAccelration)+";";#6
+        output+=str(seizureDetected)+";";#7
+        output+=str(thresholdCount)+";";#8
         end = time.time()
         f.write(output+"\n")
         if reply == "OK":
